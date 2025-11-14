@@ -1,16 +1,20 @@
-import DOMPurify from 'isomorphic-dompurify';
 import { z } from 'zod';
 
 /**
- * Sanitize HTML input to prevent XSS attacks
- * Removes all potentially dangerous HTML tags and attributes
+ * Simple text sanitization without DOMPurify
+ * Removes HTML tags and potentially dangerous characters
  */
 export function sanitizeHtml(input: string): string {
-  return DOMPurify.sanitize(input, {
-    ALLOWED_TAGS: [], // Remove all HTML tags
-    ALLOWED_ATTR: [], // Remove all attributes
-    KEEP_CONTENT: true, // Keep text content
-  });
+  if (typeof input !== 'string') return '';
+  
+  // Remove all HTML tags
+  let cleaned = input.replace(/<[^>]*>/g, '');
+  
+  // Remove script-related content
+  cleaned = cleaned.replace(/javascript:/gi, '');
+  cleaned = cleaned.replace(/on\w+\s*=/gi, '');
+  
+  return cleaned.trim();
 }
 
 /**
@@ -20,12 +24,10 @@ export function sanitizeHtml(input: string): string {
 export function sanitizeText(input: string): string {
   if (typeof input !== 'string') return '';
   
-  // First sanitize HTML
-  const cleaned = DOMPurify.sanitize(input, {
-    ALLOWED_TAGS: [], // No HTML tags allowed
-    ALLOWED_ATTR: [],
-    KEEP_CONTENT: true,
-  });
+  // Remove HTML tags and dangerous content
+  let cleaned = input.replace(/<[^>]*>/g, '');
+  cleaned = cleaned.replace(/javascript:/gi, '');
+  cleaned = cleaned.replace(/on\w+\s*=/gi, '');
   
   // Trim and limit length
   return cleaned.trim().substring(0, 10000); // Max 10k chars
