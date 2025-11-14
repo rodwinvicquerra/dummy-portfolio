@@ -1,0 +1,54 @@
+{
+  "version": 2,
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
+        },
+        {
+          "key": "X-XSS-Protection",
+          "value": "1; mode=block"
+        },
+        {
+          "key": "Referrer-Policy",
+          "value": "strict-origin-when-cross-origin"
+        },
+        {
+          "key": "Permissions-Policy",
+          "value": "camera=(), microphone=(), geolocation=()"
+        },
+        {
+          "key": "Strict-Transport-Security",
+          "value": "max-age=63072000; includeSubDomains; preload"
+        },
+        {
+          "key": "Content-Security-Policy",
+          "value": "default-src 'self'; script-src 'self' 'unsafe-eval' 'unsafe-inline' https://clerk.com https://*.clerk.accounts.dev https://*.clerk.dev https://challenges.cloudflare.com https://www.google.com https://www.gstatic.com; style-src 'self' 'unsafe-inline' https://clerk.com https://*.clerk.accounts.dev; img-src 'self' data: https: blob:; font-src 'self' data: https://clerk.com https://*.clerk.accounts.dev; connect-src 'self' https://clerk.com https://*.clerk.accounts.dev https://*.clerk.dev https://api.clerk.com https://clerk.shared.lcl.dev; frame-src 'self' https://clerk.com https://*.clerk.accounts.dev https://*.clerk.dev https://challenges.cloudflare.com https://www.google.com; child-src 'self' https://clerk.com https://*.clerk.accounts.dev blob:;"
+        }
+      ]
+    },
+    {
+      "source": "/api/mcp",
+      "headers": [
+        {
+          "key": "Access-Control-Allow-Origin",
+          "value": "*"
+        },
+        {
+          "key": "Access-Control-Allow-Methods",
+          "value": "GET, POST, OPTIONS"
+        },
+        {
+          "key": "Access-Control-Allow-Headers",
+          "value": "Content-Type, Authorization"
+        }
+      ]
+    }
+  ],
+  "env": {
+    "NEXT_PUBLIC_APP_URL": "https://week8-echa-full-security-rodwinviquerra.vercel.app"
+  }
+}
