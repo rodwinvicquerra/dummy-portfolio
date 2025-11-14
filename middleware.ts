@@ -21,10 +21,34 @@ const isAdminRoute = createRouteMatcher([
   "/api/admin(.*)",
 ]);
 
+/**
+ * Add security headers to response
+ */
+function addSecurityHeaders(response: NextResponse): NextResponse {
+  // Security headers (additional to next.config.mjs)
+  response.headers.set('X-DNS-Prefetch-Control', 'on');
+  response.headers.set('X-Powered-By', ''); // Remove X-Powered-By header
+  
+  // Set secure cookie attributes
+  const cookies = response.cookies.getAll();
+  cookies.forEach(cookie => {
+    response.cookies.set({
+      name: cookie.name,
+      value: cookie.value,
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+    });
+  });
+  
+  return response;
+}
+
 export default clerkMiddleware(async (auth, req) => {
   // Allow public routes
   if (isPublicRoute(req)) {
-    return NextResponse.next();
+    const response = NextResponse.next();
+    return addSecurityHeaders(response);
   }
 
   // Protect admin routes - check for admin role
@@ -64,7 +88,8 @@ export default clerkMiddleware(async (auth, req) => {
     }
   }
 
-  return NextResponse.next();
+  const response = NextResponse.next();
+  return addSecurityHeaders(response);
 });
 
 export const config = {

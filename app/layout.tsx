@@ -9,6 +9,7 @@ import { ThemeProvider } from "@/components/theme-provider"
 import { Toaster } from "@/components/ui/sonner"
 import { ChatButton } from "@/components/chat/ChatButton"
 import { Suspense } from "react"
+import "../env.validation" // Validate environment variables on startup
 
 export const metadata: Metadata = {
   title: "Rodwin's Portfolio",

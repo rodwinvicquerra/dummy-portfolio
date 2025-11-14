@@ -78,10 +78,24 @@ export function ChatWidget({ isOpen, onClose }: ChatWidgetProps) {
     const messageText = suggestedQuestion || input.trim();
     if (!messageText || isLoading) return;
 
+    // Client-side validation
+    if (messageText.length > 5000) {
+      const errorMessage: Message = {
+        id: (Date.now() + 1).toString(),
+        role: 'assistant',
+        content: 'Message is too long. Please keep it under 5000 characters.',
+      };
+      setMessages((prev) => [...prev, errorMessage]);
+      return;
+    }
+
+    // Basic XSS prevention (strip HTML tags)
+    const cleanMessage = messageText.replace(/<[^>]*>/g, '');
+
     const userMessage: Message = {
       id: Date.now().toString(),
       role: 'user',
-      content: messageText,
+      content: cleanMessage,
     };
 
     setMessages((prev) => [...prev, userMessage]);

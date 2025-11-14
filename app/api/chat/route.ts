@@ -1,48 +1,54 @@
 import { NextResponse } from 'next/server';
 import { portfolioContext } from '@/lib/portfolio-context';
+import { rateLimit, getRateLimitHeaders } from '@/lib/rate-limit';
+import { chatMessageSchema, containsXss, containsSqlInjection } from '@/lib/security';
 import Groq from 'groq-sdk';
+import type { NextRequest } from 'next/server';
 
-// Simple rate limiting (in-memory for demo - use Redis for production)
-const rateLimitMap = new Map<string, { count: number; resetTime: number }>();
-
-function checkRateLimit(ip: string): boolean {
-  const now = Date.now();
-  const limit = rateLimitMap.get(ip);
-
-  if (!limit || now > limit.resetTime) {
-    rateLimitMap.set(ip, { count: 1, resetTime: now + 60000 }); // 1 minute window
-    return true;
-  }
-
-  if (limit.count >= 10) {
-    // 10 messages per minute
-    return false;
-  }
-
-  limit.count++;
-  return true;
-}
-
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
   try {
-    // Get IP for rate limiting
-    const ip = req.headers.get('x-forwarded-for') || 'unknown';
-
-    // Check rate limit
-    if (!checkRateLimit(ip)) {
+    // Rate limiting - 10 requests per minute
+    const rateLimitResult = await rateLimit(req, 'chat');
+    
+    if (!rateLimitResult.success) {
       return NextResponse.json(
-        { error: 'Rate limit exceeded. Please wait a minute.' },
-        { status: 429 }
+        { error: `Rate limit exceeded. Please wait ${rateLimitResult.reset} seconds.` },
+        { 
+          status: 429,
+          headers: getRateLimitHeaders(rateLimitResult)
+        }
       );
     }
 
-    const { messages } = await req.json();
+    const body = await req.json();
 
-    if (!messages || !Array.isArray(messages)) {
+    // Validate and sanitize input
+    const validationResult = chatMessageSchema.safeParse(body);
+    
+    if (!validationResult.success) {
       return NextResponse.json(
-        { error: 'Invalid request format' },
+        { error: 'Invalid request format. Please check your message.' },
         { status: 400 }
       );
+    }
+
+    const { messages } = validationResult.data;
+
+    // Additional security checks
+    for (const msg of messages) {
+      if (containsXss(msg.content)) {
+        return NextResponse.json(
+          { error: 'Message contains potentially harmful content.' },
+          { status: 400 }
+        );
+      }
+      
+      if (containsSqlInjection(msg.content)) {
+        return NextResponse.json(
+          { error: 'Message contains suspicious patterns.' },
+          { status: 400 }
+        );
+      }
     }
 
     // Prepare messages with system context
@@ -55,7 +61,7 @@ export async function POST(req: Request) {
     ];
 
     // Check if we're on Vercel (production) or localhost  
-    const groqApiKey = process.env.GROQ_API_KEY; // Reading from GROQ_API_KEY
+    const groqApiKey = process.env.GROQ_API_KEY;
     const isVercel = process.env.VERCEL === '1';
     const useGroq = isVercel && groqApiKey;
 
@@ -71,7 +77,7 @@ export async function POST(req: Request) {
         console.log('Groq client created, calling API...');
         
         const completion = await groq.chat.completions.create({
-          model: 'llama-3.1-8b-instant', // Updated model
+          model: 'llama-3.1-8b-instant',
           messages: chatMessages as any,
           temperature: 0.7,
           max_tokens: 300,
@@ -88,9 +94,10 @@ export async function POST(req: Request) {
           );
         }
 
-        return NextResponse.json({
-          message: assistantMessage,
-        });
+        return NextResponse.json(
+          { message: assistantMessage },
+          { headers: getRateLimitHeaders(rateLimitResult) }
+        );
       } catch (error: any) {
         console.error('Groq error:', error);
         return NextResponse.json(
@@ -101,7 +108,7 @@ export async function POST(req: Request) {
     } else {
       // Use Ollama for local development
       console.log('Using Ollama for localhost');
-      response = await fetch('http://localhost:11434/api/chat', {
+      const response = await fetch('http://localhost:11434/api/chat', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -138,9 +145,10 @@ export async function POST(req: Request) {
         );
       }
 
-      return NextResponse.json({
-        message: assistantMessage,
-      });
+      return NextResponse.json(
+        { message: assistantMessage },
+        { headers: getRateLimitHeaders(rateLimitResult) }
+      );
     }
   } catch (error) {
     console.error('Chat API error:', error);
