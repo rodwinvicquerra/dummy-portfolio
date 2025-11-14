@@ -107,8 +107,20 @@ export function ChatWidget({ isOpen, onClose }: ChatWidgetProps) {
     recognition.onerror = (event: any) => {
       console.error('Speech recognition error:', event.error);
       setIsListening(false);
-      if (event.error === 'not-allowed') {
-        alert('Microphone access denied. Please enable microphone permissions.');
+      if (event.error === 'not-allowed' || event.error === 'permission-denied') {
+        const errorMessage: Message = {
+          id: Date.now().toString(),
+          role: 'assistant',
+          content: '🎤 Microphone access denied. Please click the 🔒 icon in your browser address bar and allow microphone access, then try again.',
+        };
+        setMessages((prev) => [...prev, errorMessage]);
+      } else if (event.error === 'no-speech') {
+        const errorMessage: Message = {
+          id: Date.now().toString(),
+          role: 'assistant',
+          content: '🎤 No speech detected. Please try speaking again.',
+        };
+        setMessages((prev) => [...prev, errorMessage]);
       }
     };
 
@@ -151,16 +163,31 @@ export function ChatWidget({ isOpen, onClose }: ChatWidgetProps) {
   };
 
   // Start voice input
-  const startListening = () => {
+  const startListening = async () => {
     if (!speechSupported || !recognitionRef.current) {
-      alert('Speech recognition is not supported in your browser. Please use Chrome, Edge, or Safari.');
+      const errorMessage: Message = {
+        id: Date.now().toString(),
+        role: 'assistant',
+        content: '❌ Speech recognition is not supported in your browser. Please use Chrome, Edge, or Safari.',
+      };
+      setMessages((prev) => [...prev, errorMessage]);
       return;
     }
 
     try {
+      // Request microphone permission first
+      await navigator.mediaDevices.getUserMedia({ audio: true });
       recognitionRef.current.start();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error starting recognition:', error);
+      if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
+        const errorMessage: Message = {
+          id: Date.now().toString(),
+          role: 'assistant',
+          content: '🎤 Microphone access denied. Please allow microphone access in your browser settings and try again.',
+        };
+        setMessages((prev) => [...prev, errorMessage]);
+      }
     }
   };
 
@@ -285,9 +312,9 @@ export function ChatWidget({ isOpen, onClose }: ChatWidgetProps) {
 
   return (
     <div className="fixed bottom-[140px] right-6 z-50 w-[420px] max-w-[calc(100vw-2rem)]">
-      <div className="flex flex-col h-[550px] max-h-[75vh] bg-white dark:bg-black border-2 border-gray-200 dark:border-gray-700 rounded-xl shadow-2xl">
+      <div className="flex flex-col h-[550px] max-h-[75vh] bg-white dark:bg-black border-4 border-black dark:border-white rounded-xl shadow-2xl">
         {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-black text-gray-900 dark:text-white rounded-t-xl">
+        <div className="flex items-center justify-between p-4 border-b-2 border-black dark:border-white bg-white dark:bg-black text-black dark:text-white rounded-t-xl">
           <div className="flex items-center gap-2">
             <Bot className="h-5 w-5" />
             <h3 className="font-semibold">Portfolio Assistant</h3>
@@ -300,8 +327,8 @@ export function ChatWidget({ isOpen, onClose }: ChatWidgetProps) {
                 size="icon"
                 onClick={toggleAutoSpeak}
                 className={cn(
-                  "text-gray-900 dark:text-white hover:bg-gray-100 dark:hover:bg-gray-800",
-                  autoSpeak && "bg-gray-100 dark:bg-gray-800"
+                  "text-black dark:text-white hover:bg-gray-200 dark:hover:bg-gray-800",
+                  autoSpeak && "bg-gray-200 dark:bg-gray-800"
                 )}
                 title={autoSpeak ? "Disable auto-speak" : "Enable auto-speak"}
               >
@@ -316,7 +343,7 @@ export function ChatWidget({ isOpen, onClose }: ChatWidgetProps) {
               variant="ghost"
               size="icon"
               onClick={onClose}
-              className="text-gray-900 dark:text-white hover:bg-gray-100 dark:hover:bg-gray-800"
+              className="text-black dark:text-white hover:bg-gray-200 dark:hover:bg-gray-800"
             >
               <X className="h-5 w-5" />
             </Button>
@@ -324,7 +351,7 @@ export function ChatWidget({ isOpen, onClose }: ChatWidgetProps) {
         </div>
 
         {/* Messages */}
-        <div className="flex-1 overflow-y-auto p-4 bg-gray-50 dark:bg-black">
+        <div className="flex-1 overflow-y-auto p-4 bg-white dark:bg-black">
           <div className="space-y-4">
             {messages.map((message) => (
               <div key={message.id}>
@@ -335,8 +362,8 @@ export function ChatWidget({ isOpen, onClose }: ChatWidgetProps) {
                   )}
                 >
                   {message.role === 'assistant' && (
-                    <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gray-900 dark:bg-white flex items-center justify-center">
-                      <Bot className="h-4 w-4 text-white dark:text-gray-900" />
+                    <div className="flex-shrink-0 w-8 h-8 rounded-full bg-black dark:bg-white flex items-center justify-center">
+                      <Bot className="h-4 w-4 text-white dark:text-black" />
                     </div>
                   )}
                   <div className="flex flex-col gap-1 max-w-[80%]">
@@ -344,8 +371,8 @@ export function ChatWidget({ isOpen, onClose }: ChatWidgetProps) {
                       className={cn(
                         'rounded-lg px-4 py-2.5 break-words shadow-sm',
                         message.role === 'user'
-                          ? 'bg-gray-900 dark:bg-white text-white dark:text-gray-900'
-                          : 'bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 border border-gray-200 dark:border-gray-600'
+                          ? 'bg-black dark:bg-white text-white dark:text-black font-medium'
+                          : 'bg-gray-100 dark:bg-gray-900 text-black dark:text-white border-2 border-black dark:border-white font-medium'
                       )}
                     >
                       <p className="text-sm whitespace-pre-wrap break-words">
@@ -357,7 +384,7 @@ export function ChatWidget({ isOpen, onClose }: ChatWidgetProps) {
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="h-6 w-6 hover:bg-gray-200 dark:hover:bg-gray-600"
+                          className="h-6 w-6 text-black dark:text-white hover:bg-gray-200 dark:hover:bg-gray-800"
                           onClick={() => copyMessage(message.content, message.id)}
                           title="Copy message"
                         >
@@ -371,8 +398,8 @@ export function ChatWidget({ isOpen, onClose }: ChatWidgetProps) {
                           variant="ghost"
                           size="icon"
                           className={cn(
-                            'h-6 w-6 hover:bg-gray-200 dark:hover:bg-gray-600',
-                            message.reaction === 'like' && 'text-green-600'
+                            'h-6 w-6 text-black dark:text-white hover:bg-gray-200 dark:hover:bg-gray-800',
+                            message.reaction === 'like' && 'text-green-600 dark:text-green-400'
                           )}
                           onClick={() => reactToMessage(message.id, 'like')}
                           title="Helpful"
@@ -383,8 +410,8 @@ export function ChatWidget({ isOpen, onClose }: ChatWidgetProps) {
                           variant="ghost"
                           size="icon"
                           className={cn(
-                            'h-6 w-6 hover:bg-gray-200 dark:hover:bg-gray-600',
-                            message.reaction === 'dislike' && 'text-red-600'
+                            'h-6 w-6 text-black dark:text-white hover:bg-gray-200 dark:hover:bg-gray-800',
+                            message.reaction === 'dislike' && 'text-red-600 dark:text-red-400'
                           )}
                           onClick={() => reactToMessage(message.id, 'dislike')}
                           title="Not helpful"
@@ -395,8 +422,8 @@ export function ChatWidget({ isOpen, onClose }: ChatWidgetProps) {
                     )}
                   </div>
                   {message.role === 'user' && (
-                    <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gray-300 dark:bg-gray-600 flex items-center justify-center">
-                      <User className="h-4 w-4 text-gray-700 dark:text-gray-200" />
+                    <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gray-300 dark:bg-gray-700 flex items-center justify-center">
+                      <User className="h-4 w-4 text-black dark:text-white" />
                     </div>
                   )}
                 </div>
@@ -404,13 +431,13 @@ export function ChatWidget({ isOpen, onClose }: ChatWidgetProps) {
             ))}
             {isLoading && (
               <div className="flex gap-3 justify-start">
-                <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gray-900 dark:bg-white flex items-center justify-center">
-                  <Bot className="h-4 w-4 text-white dark:text-gray-900" />
+                <div className="flex-shrink-0 w-8 h-8 rounded-full bg-black dark:bg-white flex items-center justify-center">
+                  <Bot className="h-4 w-4 text-white dark:text-black" />
                 </div>
-                <div className="bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg px-4 py-3">
+                <div className="bg-gray-100 dark:bg-gray-900 border-2 border-black dark:border-white rounded-lg px-4 py-3">
                   <div className="flex items-center gap-2">
-                    <Loader2 className="h-4 w-4 animate-spin text-gray-900 dark:text-white" />
-                    <span className="text-xs text-gray-600 dark:text-gray-300">Rodwin's AI is thinking...</span>
+                    <Loader2 className="h-4 w-4 animate-spin text-black dark:text-white" />
+                    <span className="text-xs font-medium text-black dark:text-white">Rodwin's AI is thinking...</span>
                   </div>
                 </div>
               </div>
@@ -421,15 +448,15 @@ export function ChatWidget({ isOpen, onClose }: ChatWidgetProps) {
 
         {/* Suggested Questions */}
         {messages.length <= 2 && (
-          <div className="px-4 pb-2 bg-gray-50 dark:bg-black">
-            <p className="text-xs text-gray-600 dark:text-gray-400 mb-2">Quick questions:</p>
+          <div className="px-4 pb-2 bg-white dark:bg-black">
+            <p className="text-xs font-medium text-black dark:text-white mb-2">Quick questions:</p>
             <div className="flex flex-wrap gap-2">
               {SUGGESTED_QUESTIONS.map((question) => (
                 <button
                   key={question}
                   onClick={() => handleSubmit(undefined, question)}
                   disabled={isLoading}
-                  className="text-xs px-3 py-1.5 rounded-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="text-xs font-medium px-3 py-1.5 rounded-full bg-white dark:bg-gray-900 border-2 border-black dark:border-white text-black dark:text-white hover:bg-gray-200 dark:hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {question}
                 </button>
@@ -439,15 +466,15 @@ export function ChatWidget({ isOpen, onClose }: ChatWidgetProps) {
         )}
 
         {/* Input */}
-        <form onSubmit={handleSubmit} className="p-4 border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-black">
+        <form onSubmit={handleSubmit} className="p-4 border-t-2 border-black dark:border-white bg-white dark:bg-black">
           <div className="flex gap-2">
             <Input
               ref={inputRef}
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              placeholder={isListening ? "Listening..." : "Ask about skills, projects, goals..."}
+              placeholder={isListening ? "🎤 Listening..." : "Ask about skills, projects, goals..."}
               disabled={isLoading || isListening}
-              className="flex-1 bg-gray-50 dark:bg-gray-900 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100 placeholder:text-gray-500 dark:placeholder:text-gray-400"
+              className="flex-1 bg-white dark:bg-black border-2 border-black dark:border-white text-black dark:text-white placeholder:text-gray-500 dark:placeholder:text-gray-400 font-medium"
             />
             {/* Voice input button */}
             {speechSupported && (
@@ -457,8 +484,8 @@ export function ChatWidget({ isOpen, onClose }: ChatWidgetProps) {
                 onClick={isListening ? stopListening : startListening}
                 disabled={isLoading}
                 className={cn(
-                  "bg-gray-900 dark:bg-white hover:bg-gray-800 dark:hover:bg-gray-100 text-white dark:text-gray-900",
-                  isListening && "bg-red-600 dark:bg-red-600 hover:bg-red-700 dark:hover:bg-red-700 text-white animate-pulse"
+                  "bg-black dark:bg-white hover:bg-gray-800 dark:hover:bg-gray-200 text-white dark:text-black border-2 border-black dark:border-white",
+                  isListening && "bg-red-600 dark:bg-red-500 hover:bg-red-700 dark:hover:bg-red-600 text-white dark:text-white border-red-600 dark:border-red-500 animate-pulse"
                 )}
                 title={isListening ? "Stop listening" : "Start voice input"}
               >
@@ -474,7 +501,7 @@ export function ChatWidget({ isOpen, onClose }: ChatWidgetProps) {
               type="submit" 
               size="icon" 
               disabled={isLoading || !input.trim()}
-              className="bg-gray-900 dark:bg-white hover:bg-gray-800 dark:hover:bg-gray-100 text-white dark:text-gray-900"
+              className="bg-black dark:bg-white hover:bg-gray-800 dark:hover:bg-gray-200 text-white dark:text-black border-2 border-black dark:border-white"
             >
               {isLoading ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -484,11 +511,11 @@ export function ChatWidget({ isOpen, onClose }: ChatWidgetProps) {
             </Button>
           </div>
           <div className="flex items-center justify-between mt-2">
-            <p className="text-[10px] text-gray-500 dark:text-gray-400">
-              Chat history saved locally • <button type="button" onClick={clearHistory} className="underline hover:text-gray-700 dark:hover:text-gray-300">Clear history</button>
+            <p className="text-[10px] font-medium text-black dark:text-white">
+              Chat history saved locally • <button type="button" onClick={clearHistory} className="underline hover:text-gray-600 dark:hover:text-gray-300">Clear history</button>
             </p>
             {speechSupported && (
-              <p className="text-[10px] text-gray-500 dark:text-gray-400">
+              <p className="text-[10px] font-medium text-black dark:text-white">
                 🎤 Voice enabled
               </p>
             )}
