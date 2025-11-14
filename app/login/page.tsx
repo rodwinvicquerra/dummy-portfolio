@@ -1,9 +1,14 @@
-import { redirect } from "next/navigation"
+'use client';
 
-// Force dynamic rendering for redirect
-export const dynamic = 'force-dynamic'
+import { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 
 export default function LoginPage() {
-  // Send users to the redesigned Clerk Sign In page
-  redirect("/sign-in")
+  const router = useRouter();
+  
+  useEffect(() => {
+    router.replace('/sign-in');
+  }, [router]);
+  
+  return null;
 }
